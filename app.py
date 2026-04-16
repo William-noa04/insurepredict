@@ -49,6 +49,41 @@ st.markdown(f"""
         background-color: {COLORS["bg_card"]};
         border-right: 1px solid {COLORS["divider"]};
     }}
+    
+    /* Bouton toggle pour la sidebar */
+    .sidebar-toggle {{
+        position: fixed;
+        top: 1rem;
+        left: 1rem;
+        z-index: 999;
+        background: {COLORS["bg_card"]};
+        border: 1px solid {COLORS["divider"]};
+        border-radius: 30px;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        color: {COLORS["text_primary"]};
+    }}
+    .sidebar-toggle:hover {{
+        background: {COLORS["accent_light"]};
+        transform: translateX(2px);
+    }}
+    
+    /* Bouton flottant pour mobile */
+    @media (max-width: 768px) {{
+        .sidebar-toggle {{
+            top: 0.5rem;
+            left: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+        }}
+    }}
+    
     /* Typographie */
     html, body, [class*="css"] {{
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -59,6 +94,7 @@ st.markdown(f"""
         letter-spacing: -0.02em;
         color: {COLORS["text_primary"]};
     }}
+    
     /* Cartes & conteneurs */
     .card {{
         background: {COLORS["bg_card"]};
@@ -75,6 +111,7 @@ st.markdown(f"""
         border-left: 4px solid {COLORS["accent"]};
         box-shadow: 0 4px 12px rgba(0,0,0,0.02);
     }}
+    
     /* KPI principal */
     .kpi-label {{
         font-size: 0.75rem;
@@ -95,6 +132,7 @@ st.markdown(f"""
         color: {COLORS["text_secondary"]};
         margin-top: 0.5rem;
     }}
+    
     /* Badges de risque */
     .badge {{
         display: inline-block;
@@ -130,6 +168,7 @@ st.markdown(f"""
         line-height: 1.5;
         border: 1px solid {COLORS["divider"]};
     }}
+    
     /* Métriques miniatures */
     .mini-metric {{
         background: {COLORS["bg_page"]};
@@ -151,6 +190,7 @@ st.markdown(f"""
         color: {COLORS["text_secondary"]};
         margin-top: 0.25rem;
     }}
+    
     /* Sidebar styles */
     .sidebar-section {{
         font-size: 0.7rem;
@@ -167,6 +207,7 @@ st.markdown(f"""
         border: none;
         border-top: 1px solid {COLORS["divider"]};
     }}
+    
     /* Boutons */
     .stButton > button {{
         background-color: {COLORS["text_primary"]};
@@ -181,6 +222,7 @@ st.markdown(f"""
         background-color: {COLORS["accent"]};
         color: white;
     }}
+    
     /* Inputs & sliders */
     .stSlider > div > div {{
         background-color: {COLORS["accent_light"]};
@@ -188,11 +230,66 @@ st.markdown(f"""
     .stRadio > div, .stSelectbox > div {{
         color: {COLORS["text_primary"]};
     }}
+    
     /* Masquer éléments par défaut */
     #MainMenu, footer, header {{
         visibility: hidden;
     }}
+    
+    /* Animation pour la sidebar */
+    [data-testid="stSidebar"] {{
+        transition: transform 0.3s ease;
+    }}
 </style>
+
+<script>
+// JavaScript pour toggle la sidebar
+function toggleSidebar() {{
+    const sidebar = parent.document.querySelector('[data-testid="stSidebar"]');
+    if (sidebar) {{
+        const isExpanded = sidebar.style.transform === 'none' || !sidebar.style.transform;
+        if (isExpanded) {{
+            sidebar.style.transform = 'translateX(-100%)';
+        }} else {{
+            sidebar.style.transform = 'none';
+        }}
+    }}
+}}
+</script>
+""", unsafe_allow_html=True)
+
+# --------------------------------------------------------------------
+# BOUTON TOGGLE POUR LA SIDEBAR
+# --------------------------------------------------------------------
+# Créer un bouton dans la sidebar pour la contrôler
+with st.sidebar:
+    st.markdown("---")
+    if st.button("☰ Fermer la barre latérale", use_container_width=True, key="toggle_sidebar_btn"):
+        st.markdown("""
+        <script>
+        const sidebar = parent.document.querySelector('[data-testid="stSidebar"]');
+        if (sidebar) {
+            sidebar.style.transform = 'translateX(-100%)';
+        }
+        </script>
+        """, unsafe_allow_html=True)
+    
+    # Bouton pour réinitialiser l'affichage
+    if st.button("⟳ Réinitialiser l'affichage", use_container_width=True, key="reset_view_btn"):
+        st.markdown("""
+        <script>
+        const sidebar = parent.document.querySelector('[data-testid="stSidebar"]');
+        if (sidebar) {
+            sidebar.style.transform = 'none';
+        }
+        </script>
+        """, unsafe_allow_html=True)
+
+# Bouton flottant dans la page principale
+st.markdown("""
+<div class="sidebar-toggle" onclick="toggleSidebar()">
+    <span>☰</span> <span>Paramètres</span>
+</div>
 """, unsafe_allow_html=True)
 
 # --------------------------------------------------------------------
@@ -247,6 +344,8 @@ def predict(model, age, bmi, children, sex, smoker, region):
 # --------------------------------------------------------------------
 if "history" not in st.session_state:
     st.session_state.history = []
+if "sidebar_open" not in st.session_state:
+    st.session_state.sidebar_open = True
 
 # --------------------------------------------------------------------
 # CHARGEMENT MODÈLE
@@ -254,7 +353,7 @@ if "history" not in st.session_state:
 try:
     model = load_model()
 except FileNotFoundError:
-    st.error("❌ `model.pkl` introuvable. Placez le fichier dans le même dossier que `app.py`.")
+    st.error("❌ `rf_model.joblib` introuvable. Placez le fichier dans le même dossier que `app.py`.")
     st.stop()
 except Exception as e:
     st.error(f"❌ Erreur lors du chargement du modèle : {e}")
@@ -297,7 +396,8 @@ with st.sidebar:
 # --------------------------------------------------------------------
 # PAGE PRINCIPALE — TITRE
 # --------------------------------------------------------------------
-st.markdown('<div style="margin-top:-1rem;"></div>', unsafe_allow_html=True)
+# Ajouter un margin-top pour éviter que le titre soit caché par le bouton
+st.markdown('<div style="margin-top:2rem;"></div>', unsafe_allow_html=True)
 st.markdown('<h1 style="font-weight:500; letter-spacing:-0.02rem;">Estimation des frais de santé</h1>', unsafe_allow_html=True)
 st.markdown('<p style="color:#6B6B6B; margin-top:-0.5rem;">Prédiction personnalisée basée sur votre profil</p>', unsafe_allow_html=True)
 st.markdown('<hr class="divider">', unsafe_allow_html=True)
